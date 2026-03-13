@@ -11,8 +11,15 @@ import { logger } from './logger.js';
 /** The container runtime binary name. */
 export const CONTAINER_RUNTIME_BIN = 'docker';
 
+/** Whether to use host networking (bare Linux only — bypasses firewall blocking port 3001). */
+export const USE_HOST_NETWORK =
+  os.platform() === 'linux' &&
+  !fs.existsSync('/proc/sys/fs/binfmt_misc/WSLInterop');
+
 /** Hostname containers use to reach the host machine. */
-export const CONTAINER_HOST_GATEWAY = 'host.docker.internal';
+export const CONTAINER_HOST_GATEWAY = USE_HOST_NETWORK
+  ? 'localhost'
+  : 'host.docker.internal';
 
 /**
  * Address the credential proxy binds to.
@@ -42,8 +49,13 @@ function detectProxyBindHost(): string {
 
 /** CLI args needed for the container to resolve the host gateway. */
 export function hostGatewayArgs(): string[] {
-  // On Linux, host.docker.internal isn't built-in — add it explicitly
+  if (USE_HOST_NETWORK) {
+    // Host networking: container shares the host's network namespace,
+    // so localhost:3001 reaches the credential proxy without firewall issues.
+    return ['--network', 'host'];
+  }
   if (os.platform() === 'linux') {
+    // WSL: host.docker.internal isn't built-in — add it explicitly
     return ['--add-host=host.docker.internal:host-gateway'];
   }
   return [];
