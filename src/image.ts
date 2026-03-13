@@ -78,6 +78,32 @@ export async function saveImageToGroup(
 }
 
 /**
+ * Download any file from a URL and save it to the group's attachments/ folder.
+ * Returns the relative path (e.g. "attachments/report.pdf").
+ */
+export async function saveAttachmentToGroup(
+  url: string,
+  groupFolder: string,
+  filename: string,
+): Promise<string> {
+  const attachmentsDir = path.join(GROUPS_DIR, groupFolder, 'attachments');
+  fs.mkdirSync(attachmentsDir, { recursive: true });
+
+  // Sanitise filename to prevent path traversal
+  const safe = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = path.join(attachmentsDir, safe);
+
+  const buf = await fetchBuffer(url);
+  fs.writeFileSync(filePath, buf);
+  logger.info(
+    { groupFolder, filename: safe, bytes: buf.length },
+    'Saved Telegram attachment to group workspace',
+  );
+
+  return `attachments/${safe}`;
+}
+
+/**
  * Scan message contents for [Photo:path] markers and load each as base64.
  * Returns up to maxImages attachments (most recent first).
  */

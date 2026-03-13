@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# pdf-reader — extract text from a PDF file or URL
+# Usage:
+#   pdf-reader <file>        Extract text from a local PDF file
+#   pdf-reader fetch <url>   Download a PDF from a URL and extract its text
+#   pdf-reader info <file>   Show metadata (page count, title, author, etc.)
+set -euo pipefail
+
+cmd="${1:-}"
+if [[ -z "$cmd" ]]; then
+  echo "Usage: pdf-reader <file> | pdf-reader fetch <url> | pdf-reader info <file>" >&2
+  exit 1
+fi
+
+if [[ "$cmd" == "fetch" ]]; then
+  url="${2:-}"
+  if [[ -z "$url" ]]; then
+    echo "Usage: pdf-reader fetch <url>" >&2
+    exit 1
+  fi
+  tmp=$(mktemp /tmp/pdf-reader-XXXXXX.pdf)
+  trap 'rm -f "$tmp"' EXIT
+  curl -fsSL --max-time 60 -o "$tmp" "$url"
+  pdftotext -layout "$tmp" -
+elif [[ "$cmd" == "info" ]]; then
+  file="${2:-}"
+  if [[ -z "$file" ]]; then
+    echo "Usage: pdf-reader info <file>" >&2
+    exit 1
+  fi
+  pdfinfo "$file"
+else
+  # Treat first arg as file path
+  pdftotext -layout "$cmd" -
+fi
