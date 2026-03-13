@@ -19,6 +19,11 @@ import path from 'path';
 import { query, HookCallback, PreCompactHookInput } from '@anthropic-ai/claude-agent-sdk';
 import { fileURLToPath } from 'url';
 
+interface ImageAttachment {
+  data: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+}
+
 interface ContainerInput {
   prompt: string;
   sessionId?: string;
@@ -27,6 +32,7 @@ interface ContainerInput {
   isMain: boolean;
   isScheduledTask?: boolean;
   assistantName?: string;
+  imageAttachments?: ImageAttachment[];
 }
 
 interface ContainerOutput {
@@ -47,9 +53,16 @@ interface SessionsIndex {
   entries: SessionEntry[];
 }
 
+type MessageContent =
+  | string
+  | Array<
+      | { type: 'text'; text: string }
+      | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+    >;
+
 interface SDKUserMessage {
   type: 'user';
-  message: { role: 'user'; content: string };
+  message: { role: 'user'; content: MessageContent };
   parent_tool_use_id: null;
   session_id: string;
 }
@@ -67,10 +80,10 @@ class MessageStream {
   private waiting: (() => void) | null = null;
   private done = false;
 
-  push(text: string): void {
+  push(content: MessageContent): void {
     this.queue.push({
       type: 'user',
-      message: { role: 'user', content: text },
+      message: { role: 'user', content },
       parent_tool_use_id: null,
       session_id: '',
     });
@@ -338,7 +351,25 @@ async function runQuery(
   resumeAt?: string,
 ): Promise<{ newSessionId?: string; lastAssistantUuid?: string; closedDuringQuery: boolean }> {
   const stream = new MessageStream();
-  stream.push(prompt);
+
+  // Build multimodal content if image attachments are present
+  if (containerInput.imageAttachments?.length) {
+    const content: MessageContent = [
+      ...containerInput.imageAttachments.map((att) => ({
+        type: 'image' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: att.mediaType,
+          data: att.data,
+        },
+      })),
+      { type: 'text' as const, text: prompt },
+    ];
+    stream.push(content);
+    log(`Loaded ${containerInput.imageAttachments.length} image attachment(s)`);
+  } else {
+    stream.push(prompt);
+  }
 
   // Poll IPC for follow-up messages and _close sentinel during the query
   let ipcPolling = true;

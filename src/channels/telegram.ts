@@ -209,7 +209,13 @@ export class TelegramChannel implements Channel {
 
       const isGroup =
         ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
-      this.opts.onChatMetadata(chatJid, timestamp, undefined, 'telegram', isGroup);
+      this.opts.onChatMetadata(
+        chatJid,
+        timestamp,
+        undefined,
+        'telegram',
+        isGroup,
+      );
 
       // Pick the highest-resolution photo size
       const photos = ctx.message.photo;
@@ -222,8 +228,9 @@ export class TelegramChannel implements Channel {
           const token = this.botToken;
           const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
           const relPath = await saveImageToGroup(url, group.folder);
-          // Tell the agent where to find the image so it can use the Read tool
-          content = `[Photo — use Read("${relPath}") to see it]${caption}`;
+          // Embed path as a structured marker so the host can load it as
+          // a multimodal content block when building the container input.
+          content = `[Photo:${relPath}]${caption}`;
         }
       } catch (err) {
         logger.warn({ err, chatJid }, 'Failed to download Telegram photo');

@@ -33,6 +33,11 @@ import { RegisteredGroup } from './types.js';
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
 
+export interface ImageAttachment {
+  data: string; // base64-encoded image data
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+}
+
 export interface ContainerInput {
   prompt: string;
   sessionId?: string;
@@ -41,6 +46,8 @@ export interface ContainerInput {
   isMain: boolean;
   isScheduledTask?: boolean;
   assistantName?: string;
+  /** Multimodal image attachments to include with the initial prompt. */
+  imageAttachments?: ImageAttachment[];
 }
 
 export interface ContainerOutput {
